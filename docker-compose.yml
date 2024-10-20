@@ -6,7 +6,7 @@ services:
       context: ./mompopcafe 
       dockerfile: Dockerfile
     image: sreedocker123/mompopcafeapp:v1
-    container_name: mompopcafeapp     
+    container_name: mompopcafeapp1     
     ports:
       - "5000:80"  # Change port if necessary
     depends_on:
