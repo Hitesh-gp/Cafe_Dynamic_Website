@@ -1,0 +1,146 @@
+- name: Deploy Cafe Dynamic Website on Bare Metal with Apache and MySQL
+  hosts: localhost  # Replace with your specific host group or server IP
+  connection: local
+  become: yes
+
+  vars:
+    repo_url: "https://github.com/sreepathysois/Cafe_Dynamic_Website.git"  # GitHub repository URL passed dynamically
+    mysql_root_password: "Msois@123"  # MySQL root password (update as needed)
+    db_name: "mom_pop_db"  # Name of the database
+    db_user: "hitesh"  # MySQL database user
+    db_password: "Msois@123"  # MySQL user password
+
+  tasks:
+    # Install Python3, python3-venv and python3-pip
+    - name: Install python3, python3-venv and python3-pip
+      apt:
+        name:
+          - python3
+          - python3-venv
+          - python3-pip
+        state: present
+
+    # Create a virtual environment
+    - name: Create Python virtual environment
+      command: python3 -m venv /home/hitesh/website_venv creates=/home/hitesh/website_venv/bin/activate
+
+    # Install PyMySQL in the virtual environment using pip
+    - name: Install PyMySQL in the virtual environment
+      pip:
+        name: PyMySQL
+        virtualenv: /home/hitesh/website_venv
+
+    # Ensure the correct Python version is used (Python 3)
+    - name: Ensure the correct Python version is used
+      ansible.builtin.set_fact:
+        ansible_python_interpreter: /home/hitesh/website_venv/bin/python3
+
+    - name: Update apt repository
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600
+
+    - name: Install Apache, MySQL, and other dependencies
+      apt:
+        name:
+          - apache2
+          - mysql-server
+          - mysql-client
+          - php
+          - libapache2-mod-php
+          - git
+        state: present
+
+    - name: Start and enable Apache2 service
+      service:
+        name: apache2
+        state: started
+        enabled: yes
+
+    - name: Start and enable MySQL service
+      service:
+        name: mysql
+        state: started
+        enabled: yes
+
+    - name: Mark the repository directory as safe for Git
+      command: git config --global --add safe.directory /var/www/html/Cafe_Dynamic_Website
+      become: yes
+   
+    - name: Clone the GitHub repository
+      git:
+        repo: "https://github.com/sreepathysois/Cafe_Dynamic_Website.git"
+        dest: /var/www/html/Cafe_Dynamic_Website
+        version: main  # Change this if you need a specific branch
+        force: yes     
+      become: yes
+
+    - name: Set file permissions for the website
+      file:
+        path: /var/www/html/Cafe_Dynamic_Website
+        owner: www-data
+        group: www-data
+        mode: '0755'
+        recurse: yes
+
+    - name: Configure MySQL database
+      mysql_db:
+        name: "{{ db_name }}"
+        state: present
+        login_user: root
+        login_password: "{{ mysql_root_password }}"
+
+    - name: Create MySQL user and grant permissions
+      mysql_user:
+        name: "{{ db_user }}"
+        password: "{{ db_password }}"
+        priv: "{{ db_name }}.*:ALL"
+        state: present
+        login_user: root
+        login_password: "{{ mysql_root_password }}"
+
+    - name: Load initial database schema from create-db.sql
+      mysql_db:
+        name: "{{ db_name }}"
+        state: import
+        target: /var/www/html/Cafe_Dynamic_Website/mompopdb/create-db.sql
+        login_user: root
+        login_password: "{{ mysql_root_password }}"
+
+    - name: Copy Apache site configuration for the website
+      template:
+        src: templates/apache_site_config.conf.j2
+        dest: /etc/apache2/sites-available/cafedynamicwebsite.conf
+
+    - name: Enable the new Apache site
+      command: a2ensite cafedynamicwebsite.conf
+
+    - name: Disable the default Apache site
+      command: a2dissite 000-default.conf
+
+    - name: Restart Apache service to apply changes
+      service:
+        name: apache2
+        state: restarted
+
+    - name: Ensure Apache is running
+      service:
+        name: apache2
+        state: started
+        enabled: yes
+
+    - name: Ensure MySQL is running
+      service:
+        name: mysql
+        state: started
+        enabled: yes
+
+    - name: Verify website deployment
+      uri:
+        url: http://localhost  # Change to the server's IP if necessary
+        return_content: yes
+      register: result
+
+    - name: Show website URL in the output
+      debug:
+        msg: "Website deployed successfully! Access it at http://localhost"
