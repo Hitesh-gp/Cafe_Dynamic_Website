@@ -30,7 +30,7 @@ def deploy_baremetal(git_repo):
         st.text(f"Deploying website from {git_repo} on bare metal...")
         
         # Update the playbook with the GitHub repository URL
-        updated_playbook = update_playbook(git_repo, 'deploy_baremetal.yml')
+        updated_playbook = update_playbook(git_repo, 'deploy_docker_compose.yml')
         
         if updated_playbook:
             # Run the updated playbook
@@ -51,21 +51,25 @@ def deploy_baremetal(git_repo):
         st.error(f"Error: {e}")
 
 # Function to deploy the website using Docker
-def deploy_docker():
+def deploy_docker(git_repo):
     try:
-        st.text("Deploying application using Docker...")
+        st.text(f"Deploying website from {git_repo} using Docker...")
         
-        # Run the Docker deployment playbook
-        result = subprocess.run(["ansible-playbook", "deploy_docker_compose.yml"], capture_output=True, text=True)
-        st.text(result.stdout)
-        if result.returncode == 0:
-            st.success("Deployment successful with Docker!")
-            
-            # Provide the link to the deployed website
-            website_url = "http://localhost:80"
-            st.markdown(f"Your website has been successfully deployed! You can access it [here]({website_url}).")
-        else:
-            st.error("Deployment failed with Docker!")
+        # Update the playbook with the GitHub repository URL
+        updated_playbook = update_playbook(git_repo, 'deploy_docker_compose.yml')
+        
+        if updated_playbook:
+            # Run the updated playbook
+            result = subprocess.run(["ansible-playbook", updated_playbook], capture_output=True, text=True)
+            st.text(result.stdout)
+            if result.returncode == 0:
+                st.success("Deployment successful with Docker!")
+                
+                # Provide the link to the deployed website
+                website_url = "http://localhost:80"
+                st.markdown(f"Your website has been successfully deployed! You can access it [here]({website_url}).")
+            else:
+                st.error("Deployment failed with Docker!")
             
     except Exception as e:
         st.error(f"Error: {e}")
@@ -89,4 +93,4 @@ if git_repo:
             deploy_baremetal(git_repo)
     elif deployment_option == "Docker":
         if st.button("Deploy with Docker"):
-            deploy_docker()
+            deploy_docker(git_repo)

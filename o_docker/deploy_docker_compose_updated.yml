@@ -7,7 +7,7 @@
     docker_image_tag: "v1"
     docker_hub_image: "{{ docker_hub_username }}/{{ docker_image_name }}:{{ docker_image_tag }}"
     project_dir: "/home/hitesh/Cafe_Dynamic_Website/o_docker"   # Replace with the actual path to your project
-    repo_url: "{{ repo_url }}"  # GitHub repository URL passed dynamically
+    repo_url: "https://github.com/Hitesh-gp/Cafe_Dynamic_Website.git"  # GitHub repository URL passed dynamically
   tasks:
 
     # Check if the project directory exists
@@ -19,7 +19,7 @@
     # Clone the GitHub repository if directory does not exist
     - name: Clone the GitHub repository if directory does not exist
       git:
-        repo: "{{ repo_url }}"
+        repo: "https://github.com/Hitesh-gp/Cafe_Dynamic_Website.git"
         dest: "{{ project_dir }}"
         version: main
         force: yes
@@ -29,7 +29,7 @@
     # Pull the latest changes if the directory exists
     - name: Pull the latest changes if directory exists
       git:
-        repo: "{{ repo_url }}"
+        repo: "https://github.com/Hitesh-gp/Cafe_Dynamic_Website.git"
         dest: "{{ project_dir }}"
         version: main
         update: yes   # Ensures we pull the latest changes in the existing repository
