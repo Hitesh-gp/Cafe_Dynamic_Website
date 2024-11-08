@@ -6,7 +6,7 @@
     docker_image_name: "cafe_o_docker"         # Replace with your Docker image name
     docker_image_tag: "v1"
     docker_hub_image: "{{ docker_hub_username }}/{{ docker_image_name }}:{{ docker_image_tag }}"
-    project_dir: "/home/hitesh/Cafe_Dynamic_Website/o_docker"   # Replace with the actual path to your project
+    project_dir: "/home/hitesh/Cafe_Dynamic_Website"   # Path to your project directory
     repo_url: "{{ repo_url }}"  # GitHub repository URL passed dynamically
   tasks:
 
@@ -26,22 +26,23 @@
       become: yes
       when: not project_dir_stat.stat.exists
 
-    # Pull the latest changes if the directory exists
-    - name: Pull the latest changes if directory exists
-      git:
-        repo: "{{ repo_url }}"
-        dest: "{{ project_dir }}"
-        version: main
-        update: yes   # Ensures we pull the latest changes in the existing repository
+    # Reset local changes and pull the latest changes if directory exists
+    - name: Reset local changes and pull the latest changes if directory exists
+      shell: |
+        cd {{ project_dir }}
+        git reset --hard
+        git pull origin main
       become: yes
       when: project_dir_stat.stat.exists and project_dir_stat.stat.isdir
 
+    # Check if Docker image exists on Docker Hub
     - name: Check if Docker image exists on Docker Hub
       shell: "docker pull {{ docker_hub_image }} || echo 'not_found'"
       register: pull_result
       ignore_errors: true
 
-    - name: Build Docker image if not found on Docker Hub
+    # Build Docker image if not found on Docker Hub
+    - name: Build Docker image from Dockerfile if not found on Docker Hub
       block:
         - name: Build Docker image from Dockerfile
           docker_image:
@@ -53,7 +54,7 @@
         - name: Log in to Docker Hub
           docker_login:
             username: "{{ docker_hub_username }}"
-            password: "{{ lookup('env', 'DOCKER_HUB_PASSWORD') }}"  # Set DOCKER_HUB_PASSWORD in your environment for security
+            password: "{{ lookup('env', 'DOCKER_HUB_PASSWORD') }}"  # Ensure DOCKER_HUB_PASSWORD is set securely
 
         - name: Push Docker image to Docker Hub
           docker_image:
@@ -62,21 +63,25 @@
             source: local
       when: pull_result.stdout.find("not_found") != -1
 
+    # Pull Docker image (either from Docker Hub or after pushing)
     - name: Pull Docker image (either from Docker Hub or after pushing)
       docker_image:
         name: "{{ docker_hub_image }}"
         source: pull
 
+    # Stop existing Docker containers if running
     - name: Stop existing Docker containers if running
       docker_compose:
         project_src: "{{ project_dir }}"
         state: absent
 
+    # Deploy website and database using Docker Compose
     - name: Deploy website and database using Docker Compose
       docker_compose:
         project_src: "{{ project_dir }}"
         state: present
 
+    # Wait for MySQL to initialize
     - name: Wait for MySQL to initialize
       wait_for:
         host: "127.0.0.1"
@@ -84,6 +89,7 @@
         delay: 10         # Initial wait before checking
         timeout: 60       # Total timeout duration
 
+    # Initialize the database (if not already initialized)
     - name: Initialize the database (if not already initialized)
       shell: |
         docker exec -i mysql_new mysql -u root -pMsois@123 mom_pop_db < {{ project_dir }}/mompopdb/create-db.sql
@@ -92,6 +98,7 @@
       register: db_init_result
       ignore_errors: true
 
+    # Check database initialization result
     - name: Check database initialization result
       debug:
         msg: "Database initialized successfully." 
