@@ -25,7 +25,7 @@ def update_playbook(git_repo_url):
         st.error(f"Error updating the playbook: {e}")
         return None
 
-# Function to deploy the website using Ansible
+# Function to deploy the website using Ansible on bare metal
 def deploy_baremetal(git_repo):
     try:
         st.text(f"Deploying website from {git_repo} on bare metal...")
@@ -51,6 +51,38 @@ def deploy_baremetal(git_repo):
     except Exception as e:
         st.error(f"Error: {e}")
 
+# Function to deploy the website using Docker
+def deploy_docker(git_repo):
+    try:
+        st.text(f"Deploying website from {git_repo} using Docker...")
+        
+        # Clone the GitHub repository
+        subprocess.run(['git', 'clone', git_repo, 'app'], check=True)
+        
+        # Build the Docker image
+        result = subprocess.run(['docker', 'build', '-t', 'cafe_app', './app'], capture_output=True, text=True)
+        st.text(result.stdout)
+        
+        if result.returncode == 0:
+            st.success("Docker image built successfully!")
+
+            # Run the Docker container
+            result = subprocess.run(['docker', 'run', '-d', '-p', '80:80', '--name', 'cafe_app_container', 'cafe_app'], capture_output=True, text=True)
+            st.text(result.stdout)
+            
+            if result.returncode == 0:
+                st.success("Deployment successful with Docker!")
+                # Provide the link to the deployed website
+                website_url = "http://localhost:80"
+                st.markdown(f"Your website has been successfully deployed! You can access it [here]({website_url}).")
+            else:
+                st.error("Failed to start the Docker container.")
+        else:
+            st.error("Failed to build the Docker image.")
+            
+    except Exception as e:
+        st.error(f"Error during Docker deployment: {e}")
+
 # Streamlit UI
 st.title('Automated Deployment of Website')
 
@@ -68,3 +100,6 @@ if git_repo:
     if deployment_option == "Bare Metal":
         if st.button("Deploy on Bare Metal"):
             deploy_baremetal(git_repo)
+    elif deployment_option == "Docker":
+        if st.button("Deploy with Docker"):
+            deploy_docker(git_repo)

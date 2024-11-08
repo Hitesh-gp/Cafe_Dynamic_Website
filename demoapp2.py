@@ -3,8 +3,7 @@ import subprocess
 import os
 
 # Function to update playbook with the GitHub repository URL
-def update_playbook(git_repo_url):
-    playbook_file = 'deploy_baremetal.yml'  # Your playbook file
+def update_playbook(git_repo_url, playbook_file):
     try:
         # Read the playbook template
         with open(playbook_file, 'r') as file:
@@ -14,7 +13,7 @@ def update_playbook(git_repo_url):
         updated_playbook = playbook_content.replace("{{ repo_url }}", git_repo_url)
 
         # Write the updated content back to the playbook file (or to a temporary file)
-        updated_playbook_file = 'deploy_baremetal_updated.yml'
+        updated_playbook_file = playbook_file.replace(".yml", "_updated.yml")
         with open(updated_playbook_file, 'w') as file:
             file.write(updated_playbook)
 
@@ -25,13 +24,13 @@ def update_playbook(git_repo_url):
         st.error(f"Error updating the playbook: {e}")
         return None
 
-# Function to deploy the website using Ansible
+# Function to deploy the website on Bare Metal using Ansible
 def deploy_baremetal(git_repo):
     try:
         st.text(f"Deploying website from {git_repo} on bare metal...")
         
         # Update the playbook with the GitHub repository URL
-        updated_playbook = update_playbook(git_repo)
+        updated_playbook = update_playbook(git_repo, 'deploy_baremetal.yml')
         
         if updated_playbook:
             # Run the updated playbook
@@ -41,12 +40,32 @@ def deploy_baremetal(git_repo):
                 st.success("Deployment successful on Bare Metal!")
                 
                 # Provide the link to the deployed website
-                website_url = "http://localhost/Cafe_Dynamic_Website/mompopcafe/"  # Replace with your actual URL
-                st.markdown(f"Your website has been successfully deployed! You can access it [http://localhost:80]({website_url}).")
+                website_url = "http://localhost/Cafe_Dynamic_Website/mompopcafe/"
+                st.markdown(f"Your website has been successfully deployed! You can access it [here]({website_url}).")
             else:
                 st.error("Deployment failed on Bare Metal!")
         else:
             st.error("Failed to update playbook. Deployment aborted.")
+            
+    except Exception as e:
+        st.error(f"Error: {e}")
+
+# Function to deploy the website using Docker
+def deploy_docker():
+    try:
+        st.text("Deploying application using Docker...")
+        
+        # Run the Docker deployment playbook
+        result = subprocess.run(["ansible-playbook", "deploy_docker.yml"], capture_output=True, text=True)
+        st.text(result.stdout)
+        if result.returncode == 0:
+            st.success("Deployment successful with Docker!")
+            
+            # Provide the link to the deployed website
+            website_url = "http://localhost:80"
+            st.markdown(f"Your website has been successfully deployed! You can access it [here]({website_url}).")
+        else:
+            st.error("Deployment failed with Docker!")
             
     except Exception as e:
         st.error(f"Error: {e}")
@@ -68,3 +87,6 @@ if git_repo:
     if deployment_option == "Bare Metal":
         if st.button("Deploy on Bare Metal"):
             deploy_baremetal(git_repo)
+    elif deployment_option == "Docker":
+        if st.button("Deploy with Docker"):
+            deploy_docker()
