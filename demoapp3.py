@@ -2,27 +2,18 @@ import streamlit as st
 import subprocess
 import os
 
-# Define the persistent directory to store your playbook files
-PERSISTENT_DIR = "/home/hitesh/Cafe_Dynamic_Website"
-
 # Function to update playbook with the GitHub repository URL
 def update_playbook(git_repo_url, playbook_file):
     try:
-        # Ensure the persistent directory exists
-        if not os.path.exists(PERSISTENT_DIR):
-            os.makedirs(PERSISTENT_DIR)
-
-        playbook_path = os.path.join(PERSISTENT_DIR, playbook_file)
-
         # Read the playbook template
-        with open(playbook_path, 'r') as file:
+        with open(playbook_file, 'r') as file:
             playbook_content = file.read()
 
         # Replace the placeholder with the provided GitHub repository URL
         updated_playbook = playbook_content.replace("{{ repo_url }}", git_repo_url)
 
-        # Write the updated content back to a new file in the persistent directory
-        updated_playbook_file = os.path.join(PERSISTENT_DIR, playbook_file.replace(".yml", "_updated.yml"))
+        # Write the updated content back to the playbook file (or to a temporary file)
+        updated_playbook_file = playbook_file.replace(".yml", "_updated.yml")
         with open(updated_playbook_file, 'w') as file:
             file.write(updated_playbook)
 
