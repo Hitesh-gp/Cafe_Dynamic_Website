@@ -6,7 +6,7 @@
     docker_image_name: "cafe_o_docker"         # Replace with your Docker image name
     docker_image_tag: "v1"
     docker_hub_image: "{{ docker_hub_username }}/{{ docker_image_name }}:{{ docker_image_tag }}"
-    project_dir: "/home/hitesh/Cafe_Dynamic_Website"   # Path to your project directory
+    project_dir: "/home/hitesh/Cafe_Dynamic_Website/"   # Path to your project directory
     repo_url: "{{ repo_url }}"  # GitHub repository URL passed dynamically
   tasks:
 
