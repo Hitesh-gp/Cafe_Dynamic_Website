@@ -1,37 +1,25 @@
 version: '3.8'
 
 services:
-  cafeapp:
+  web:
     build:
-      context: ./mompopcafe 
+      context: ./mompopcafe
       dockerfile: Dockerfile
-    image: sreedocker123/mompopcafeapp:v1
-    container_name: mompopcafeapp1     
     ports:
-      - "5000:80"  # Change port if necessary
+      - "80:80"
     depends_on:
-      - mysql
-        #volumes:
-        #- admin_data:/path/to/admin_service/data
+      - db
 
-
-  mysql:
-    image: mysql:latest
-    container_name: mysql_new
-    #command: --default-authentication-plugin=mysql_native_password
+  db:
+    build:
+      context: ./mompopdb
+      dockerfile: Dockerfile
     environment:
-      MYSQL_ROOT_PASSWORD: Msois@123  
-      MYSQL_DATABASE: mom_pop_db 
-        #MYSQL_USER: root 
-      MYSQL_PASSWORD: Msois@123  
+      MYSQL_ROOT_PASSWORD: "Msois@123"
+      MYSQL_DATABASE: "mom_pop_db"
+      MYSQL_USER: "root"
+      MYSQL_PASSWORD: "Msois@123"
     ports:
-      - "3307:3306"  # Change port if necessary
+      - "3306:3306"
     volumes:
-      - mysql_data:/var/lib/mysql
-      - ./mompopdb/create-db.sql:/docker-entrypoint-initdb.d/create-db.sql
-
-volumes:
-  #admin_data:
-  #faculty_data:
-  #student_data:
-  mysql_data:
+      - ./mompopdb/sql:/docker-entrypoint-initdb.d
