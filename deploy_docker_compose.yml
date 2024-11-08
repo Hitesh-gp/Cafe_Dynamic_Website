@@ -26,11 +26,12 @@
       become: yes
       when: not project_dir_stat.stat.exists
 
-    # Reset local changes and pull the latest changes if directory exists
+    # Reset local changes, clean up untracked files, and pull the latest changes if directory exists
     - name: Reset local changes and pull the latest changes if directory exists
       shell: |
         cd {{ project_dir }}
         git reset --hard
+        git clean -fd    # Remove untracked files and directories
         git pull origin main
       become: yes
       when: project_dir_stat.stat.exists and project_dir_stat.stat.isdir
