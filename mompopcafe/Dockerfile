@@ -8,7 +8,11 @@ ENV MYSQL_USER=root
 ENV MYSQL_PASSWORD=Msois@123
 
 # Copy the database initialization script into the container
+<<<<<<< HEAD
 COPY mompopdb/create-db.sql /docker-entrypoint-initdb.d/
+=======
+COPY mompopcafe/mompopdb/create-db.sql /docker-entrypoint-initdb.d/
+>>>>>>> 39755abfd7064aabe8bd9d0c55907afbb221661c
 
 # Expose MySQL port
 EXPOSE 3306
