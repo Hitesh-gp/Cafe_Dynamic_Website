@@ -1,10 +1,18 @@
 - name: Deploy Dynamic Website with Apache2 and MySQL in Docker
   hosts: localhost
   become: true
+  vars_prompt:
+    - name: "dockerhub_username"
+      prompt: "Enter your Docker Hub username"
+      private: no
+    - name: "dockerhub_password"
+      prompt: "Enter your Docker Hub password"
+      private: yes
+
   vars:
-    github_url: "https://github.com/Hitesh-gp/Cafe_Dynamic_Website.git"  # Replace with actual GitHub URL
-    repo_dir: "/home/hitesh/Cafe_Dynamic_Website"  # Updated to the specific repo folder
-    docker_image_name: "hiteshdocker31/dummyimage"
+    github_url: "https://github.com/Hitesh-gp/Cafe_Dynamic_Website.git"  # Correct GitHub URL
+    repo_dir: "/home/hitesh/Cafe_Dynamic_Website"  # Directory for cloned GitHub repo
+    docker_image_name: "hiteshdocker31/dummyimage"  # Image name on Docker Hub
     container_name: "dummy_container"
     webapp_port: 8070
 
@@ -20,9 +28,15 @@
         name: python3-docker
         state: present
 
-    - name: Check if Docker image exists locally
-      command: docker images -q {{ docker_image_name }}
-      register: local_image
+    - name: Docker login to Docker Hub
+      docker_login:
+        username: "{{ dockerhub_username }}"
+        password: "{{ dockerhub_password }}"
+        registry: "https://index.docker.io/v1/"
+
+    - name: Check if Docker image exists on Docker Hub
+      command: docker pull {{ docker_image_name }}
+      register: docker_image_check
       ignore_errors: yes
 
     - name: Check if GitHub repository already exists locally
@@ -34,7 +48,7 @@
       git:
         repo: "{{ github_url }}"
         dest: "{{ repo_dir }}"
-      when: repo_exists.stat.exists == false and local_image.stdout == ""
+      when: repo_exists.stat.exists == false
 
     - name: Find the Dockerfile in the cloned repository
       find:
@@ -44,27 +58,25 @@
         file_type: file
       register: dockerfile_result
 
+    - name: Fail if Dockerfile is not found
+      fail:
+        msg: "Dockerfile not found in the GitHub repository."
+      when: dockerfile_result.matched == 0
+
     - name: Debug Dockerfile result
       debug:
         var: dockerfile_result
 
-    - name: Fail if Dockerfile is not found
-      fail:
-        msg: "Dockerfile not found in the repository."
-      when: dockerfile_result.matched == 0
-
-    - name: Build Docker image from the located Dockerfile if image doesn't exist
-      docker_image:
-        name: "{{ docker_image_name }}"
-        source: build  # Specify 'build' to indicate building from a Dockerfile
-        path: "{{ dockerfile_result.files[0].path | dirname }}"  # Provide the directory path here
-      when: local_image.stdout == ""
+    - name: Build Docker image from the located Dockerfile if image doesn't exist on Docker Hub
+      command: >
+        docker build -t {{ docker_image_name }} {{ dockerfile_result.files[0].path | dirname }}
+      when: docker_image_check.failed == true
 
     - name: Push Docker image to Docker Hub
       docker_image:
         name: "{{ docker_image_name }}"
         push: yes
-      when: local_image.stdout == ""
+      when: docker_image_check.failed == true
 
     - name: Run MySQL container
       docker_container:
