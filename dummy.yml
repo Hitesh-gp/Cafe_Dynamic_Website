@@ -1,0 +1,102 @@
+- name: Deploy Dynamic Website with Apache2 and MySQL in Docker
+  hosts: localhost
+  become: true
+  vars:
+    github_url: "https://github.com/Hitesh-gp/Cafe_Dynamic_Website.git"  # Replace with actual GitHub URL
+    repo_dir: "/home/hitesh/Cafe_Dynamic_Website"  # Updated to the specific repo folder
+    docker_image_name: "hiteshdocker31/dummyimage"
+    container_name: "dummy_container"
+    webapp_port: 8070
+
+  tasks:
+    - name: Install Docker
+      apt:
+        name: docker.io
+        state: present
+        update_cache: yes
+
+    - name: Install Docker-Py (Docker SDK for Python)
+      apt:
+        name: python3-docker
+        state: present
+
+    - name: Check if Docker image exists locally
+      command: docker images -q {{ docker_image_name }}
+      register: local_image
+      ignore_errors: yes
+
+    - name: Check if GitHub repository already exists locally
+      stat:
+        path: "{{ repo_dir }}"
+      register: repo_exists
+
+    - name: Clone GitHub repository if not already cloned
+      git:
+        repo: "{{ github_url }}"
+        dest: "{{ repo_dir }}"
+      when: repo_exists.stat.exists == false and local_image.stdout == ""
+
+    - name: Find the Dockerfile in the cloned repository
+      find:
+        paths: "{{ repo_dir }}"
+        patterns: "Dockerfile"
+        recurse: yes
+        file_type: file
+      register: dockerfile_result
+
+    - name: Debug Dockerfile result
+      debug:
+        var: dockerfile_result
+
+    - name: Fail if Dockerfile is not found
+      fail:
+        msg: "Dockerfile not found in the repository."
+      when: dockerfile_result.matched == 0
+
+    - name: Build Docker image from the located Dockerfile if image doesn't exist
+      docker_image:
+        name: "{{ docker_image_name }}"
+        source: build  # Specify 'build' to indicate building from a Dockerfile
+        path: "{{ dockerfile_result.files[0].path | dirname }}"  # Provide the directory path here
+      when: local_image.stdout == ""
+
+    - name: Push Docker image to Docker Hub
+      docker_image:
+        name: "{{ docker_image_name }}"
+        push: yes
+      when: local_image.stdout == ""
+
+    - name: Run MySQL container
+      docker_container:
+        name: mysql_container
+        image: mysql:5.7
+        restart_policy: always
+        environment:
+          MYSQL_ROOT_PASSWORD: rootpassword
+          MYSQL_DATABASE: webapp_db
+          MYSQL_USER: webapp_user
+          MYSQL_PASSWORD: webapp_password
+        ports:
+          - "3306:3306"
+        state: started
+
+    - name: Run Apache2 and WebApp container
+      docker_container:
+        name: "{{ container_name }}"
+        image: "{{ docker_image_name }}"
+        ports:
+          - "{{ webapp_port }}:80"
+        links:
+          - mysql_container:mysql
+        env:
+          DATABASE_HOST: mysql
+          DATABASE_USER: webapp_user
+          DATABASE_PASSWORD: webapp_password
+          DATABASE_NAME: webapp_db
+        state: started
+
+    - name: Open web app in browser
+      local_action:
+        module: command
+        cmd: "xdg-open http://localhost:{{ webapp_port }}"
+      ignore_errors: yes
