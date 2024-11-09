@@ -1,4 +1,3 @@
-# Stage 1: MySQL setup
 FROM mysql:5.7 AS mysql_stage
 
 # Set environment variables for MySQL
@@ -8,11 +7,11 @@ ENV MYSQL_USER=root
 ENV MYSQL_PASSWORD=Msois@123
 
 # Copy the database initialization script into the container
-<<<<<<< HEAD
+HEAD
 COPY mompopdb/create-db.sql /docker-entrypoint-initdb.d/
-=======
+
 COPY mompopcafe/mompopdb/create-db.sql /docker-entrypoint-initdb.d/
->>>>>>> 39755abfd7064aabe8bd9d0c55907afbb221661c
+39755abfd7064aabe8bd9d0c55907afbb221661c
 
 # Expose MySQL port
 EXPOSE 3306
