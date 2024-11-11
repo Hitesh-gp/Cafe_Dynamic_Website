@@ -56,7 +56,8 @@
             name: "{{ docker_hub_image }}"
             tag: "{{ docker_image_tag }}"
             state: present                           # Ensure the image is built
-
+            source: local
+            
         - name: Log in to Docker Hub
           docker_login:
             username: "{{ docker_hub_username }}"
