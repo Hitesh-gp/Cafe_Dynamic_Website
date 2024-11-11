@@ -1,0 +1,113 @@
+---
+- name: Deploy Application from GitHub
+  hosts: localhost
+  become: true
+  vars:
+    project_repo: "{{ github_repo }}"  # GitHub repository URL (passed as a variable)
+    project_dir: "/home/rb/{{ repo_name }}"  # Project directory
+    dockerhub_user: "rbdockers"  # Docker Hub username
+    dockerhub_password: "dockers@123"  # Docker Hub password
+    docker_image_name: "{{ repo_name }}_image"  # Name of the Docker image
+
+  tasks:
+    - name: Install dependencies
+      apt:
+        name: "{{ item }}"
+        state: present
+      loop:
+        - git
+        - docker.io
+        - docker-compose
+        - python3-pip
+      tags: install
+
+    - name: Clone the GitHub repository
+      git:
+        repo: "{{ project_repo }}"
+        dest: "{{ project_dir }}"
+      tags: clone
+
+    - name: Log in to Docker Hub
+      docker_login:
+        username: "{{ dockerhub_user }}"
+        password: "{{ dockerhub_password }}"
+      tags: dockerhub_login
+
+    - name: Check if Docker image exists on Docker Hub
+      uri:
+        url: "https://hub.docker.com/v2/repositories/{{ dockerhub_user }}/{{ docker_image_name }}/tags/"
+        method: GET
+        status_code: 200
+      register: dockerhub_image_check
+      ignore_errors: yes
+      tags: dockerhub_check
+
+    - name: Build and push Docker image if not found on Docker Hub
+      block:
+        - name: Search for Dockerfile in the repo
+          stat:
+            path: "{{ project_dir }}/Dockerfile"
+          register: dockerfile_stat
+          tags: dockerfile_search
+
+        - name: Build the Docker image from Dockerfile
+          command: docker build -t "{{ dockerhub_user }}/{{ docker_image_name }}" "{{ project_dir }}"
+          when: dockerfile_stat.stat.exists
+          tags: build_image
+
+        - name: Push Docker image to Docker Hub
+          docker_image:
+            name: "{{ dockerhub_user }}/{{ docker_image_name }}"
+            push: yes
+          when: dockerfile_stat.stat.exists
+          tags: push_image
+
+    - name: Search for docker-compose.yml in the repo
+      stat:
+        path: "{{ project_dir }}/docker-compose.yml"
+      register: docker_compose_stat
+      tags: compose_search
+
+    - name: Deploy using docker-compose if found
+      community.docker.docker_compose:
+        project_src: "{{ project_dir }}"
+        pull: yes
+        build: yes
+        state: present
+      when: docker_compose_stat.stat.exists
+      tags: deploy_compose
+
+    - name: Deploy using Docker image if no docker-compose.yml found
+      docker_container:
+        name: "{{ repo_name }}_container"
+        image: "{{ dockerhub_user }}/{{ docker_image_name }}"
+        state: started
+        restart_policy: unless-stopped
+        ports:
+          - "5000:80"
+      when: docker_compose_stat.stat.exists == False
+      tags: deploy_docker
+
+   
+    - name: List Docker containers
+      shell: "docker ps"
+      register: docker_ps_output
+      tags: debug
+
+    - debug:
+        var: docker_ps_output.stdout_lines
+      tags: debug
+
+    - name: Confirm application is running
+      shell: "docker ps | grep {{ repo_name }}_container || true"
+      register: result
+      failed_when: result.rc != 0
+      tags: verify
+
+    - name: Open port 5000 for access to app
+      ufw:
+        rule: allow
+        port: 5000
+        proto: tcp
+      when: ansible_os_family == "Debian"
+      tags: firewall

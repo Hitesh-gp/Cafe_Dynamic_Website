@@ -4,7 +4,7 @@
   become: yes
 
   vars:
-    repo_url: "https://github.com/Hitesh-gp/Cafe_Dynamic_Website.git"  # GitHub repository URL passed dynamically
+    repo_url: "https://github.com/sreepathysois/phpmysql-app.git"  # GitHub repository URL passed dynamically
     mysql_root_password: "Msois@123"  # MySQL root password (update as needed)
     db_name: "mom_pop_db"  # Name of the database
     db_user: "hitesh"  # MySQL database user
@@ -69,7 +69,7 @@
    
     - name: Clone the GitHub repository
       git:
-        repo: "https://github.com/Hitesh-gp/Cafe_Dynamic_Website.git"
+        repo: "https://github.com/sreepathysois/phpmysql-app.git"
         dest: /var/www/html/Cafe_Dynamic_Website
         version: main  # Change this if you need a specific branch
         force: yes     
