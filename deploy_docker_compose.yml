@@ -2,11 +2,11 @@
   hosts: localhost
   connection: local
   vars:
-    docker_hub_username: "hiteshdocker31"       # Replace with your Docker Hub username
-    docker_image_name: "cafe_o_docker"          # Replace with your Docker image name
+    docker_hub_username: "hiteshdocker31"       # Docker Hub username
+    docker_image_name: "cafe_o_docker"          # Docker image name
     docker_image_tag: "v1"
     docker_hub_image: "{{ docker_hub_username }}/{{ docker_image_name }}:{{ docker_image_tag }}"
-    project_dir: "/home/hitesh/Cafe_Dynamic_Website"   # Path to your project directory
+    project_dir: "/home/hitesh/Cafe_Dynamic_Website"   # Project directory path
     repo_url: "{{ repo_url }}"  # GitHub repository URL passed dynamically
     mysql_root_password: "Msois@123"   # Database root password
     mysql_database: "mom_pop_db"       # Database name
@@ -45,17 +45,15 @@
       register: pull_result
       ignore_errors: true
 
-    # Build Docker image if not found on Docker Hub
-    - name: Build Docker image from Dockerfile if not found on Docker Hub
+    # Build and Push Docker image if not found on Docker Hub
+    - name: Build and push Docker image if not found on Docker Hub
       block:
-        - name: Build Docker image from Dockerfile
-          docker_image:
-            name: "{{ docker_hub_image }}"
-            tag: "{{ docker_image_tag }}"
-            state: present
-            build:
-              path: "{{ project_dir }}/mompopcafe"  # Ensure this path is correct
-              dockerfile: Dockerfile
+        - name: Build Docker image using shell command
+          shell: |
+            docker build -t {{ docker_hub_image }} {{ project_dir }}/mompopcafe
+          args:
+            chdir: "{{ project_dir }}"
+          when: pull_result.stdout.find("not_found") != -1
 
         - name: Log in to Docker Hub
           docker_login:
@@ -70,7 +68,7 @@
       when: pull_result.stdout.find("not_found") != -1
 
     # Pull Docker image (either from Docker Hub or after pushing)
-    - name: Pull Docker image (either from Docker Hub or after pushing)
+    - name: Pull Docker image
       docker_image:
         name: "{{ docker_hub_image }}"
         source: pull
