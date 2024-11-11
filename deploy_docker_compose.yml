@@ -52,7 +52,8 @@
           docker_image:
             build:
               context: "{{ project_dir }}/mompopcafe"  # Path to the directory containing the Dockerfile
-              dockerfile: Dockerfile                  # Name of the Dockerfile
+              dockerfile: Dockerfile 
+              path: "{{ project_dir }}/mompopcafe"
             name: "{{ docker_hub_image }}"
             tag: "{{ docker_image_tag }}"
             state: present                           # Ensure the image is built
