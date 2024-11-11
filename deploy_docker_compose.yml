@@ -51,6 +51,7 @@
         - name: Build Docker image from Dockerfile
           docker_image:
             build:
+              path: "{{ project_dir }}/mompopcafe"
               context: "{{ project_dir }}/mompopcafe"  # Path to the directory containing the Dockerfile
               dockerfile: Dockerfile                  # Dockerfile name (optional if it's named Dockerfile)
             name: "{{ docker_hub_image }}"
