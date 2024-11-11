@@ -52,13 +52,12 @@
           docker_image:
             build:
               context: "{{ project_dir }}/mompopcafe"  # Path to the directory containing the Dockerfile
-              dockerfile: Dockerfile 
-              path: "{{ project_dir }}/mompopcafe"
+              dockerfile: Dockerfile                  # Dockerfile name (optional if it's named Dockerfile)
             name: "{{ docker_hub_image }}"
             tag: "{{ docker_image_tag }}"
             state: present                           # Ensure the image is built
             source: build
-            
+
         - name: Log in to Docker Hub
           docker_login:
             username: "{{ docker_hub_username }}"
@@ -102,4 +101,6 @@
     # Initialize the database (if not already initialized)
     - name: Initialize the database (if not already initialized)
       shell: |
-        docker exec -i mysql_new
+        docker exec -i mysql_new mysql -u root -p{{ mysql_root_password }} {{ mysql_database }} < /path/to/initialize.sql
+      become: yes
+      when: mysql_database is defined and mysql_root_password is defined
