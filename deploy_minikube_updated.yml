@@ -1,0 +1,205 @@
+- name: Deploy Cafe Dynamic Website on Minikube
+  hosts: localhost
+  connection: local
+  become: yes
+  become_user: hitesh
+
+  vars:
+    repo_url: "https://github.com/Hitesh-gp/Cafe_Dynamic_Website.git"  # GitHub repository URL passed dynamically
+    mysql_root_password: "Msois@123"  # MySQL root password (update as needed)
+    db_name: "mom_pop_db"  # Name of the database
+    db_user: "hitesh"  # MySQL database user
+    db_password: "Msois@123"  # MySQL user password
+    namespace: default  # Kubernetes namespace for deployments (change if needed)
+
+  tasks:
+    # Install Docker
+    - name: Install Docker
+      apt:
+        name: docker.io
+        state: present
+
+    # Install curl (needed to download kubectl and minikube)
+    - name: Install curl
+      apt:
+        name: curl
+        state: present
+
+    # Install kubectl (Kubernetes CLI)
+    - name: Install kubectl
+      become: yes
+      shell: |
+        curl -LO https://dl.k8s.io/release/v1.27.0/bin/linux/amd64/kubectl
+        chmod +x ./kubectl
+        mv ./kubectl /usr/local/bin/kubectl
+      args:
+        creates: /usr/local/bin/kubectl
+
+    # Install Minikube
+    - name: Install Minikube
+      become: yes
+      shell: |
+        curl -Lo minikube https://storage.googleapis.com/minikube/releases/v1.27.0/minikube-linux-amd64
+        chmod +x minikube
+        mv minikube /usr/local/bin/
+      args:
+        creates: /usr/local/bin/minikube
+
+    # Start Minikube
+    - name: Start Minikube
+      command: minikube start --driver=docker
+      register: minikube_start
+      failed_when: minikube_start.rc != 0
+
+    # Set kubectl context to Minikube
+    - name: Set kubectl context to Minikube
+      command: kubectl config use-context minikube
+
+    # Create virtual environment if not exists
+    - name: Create virtual environment
+      shell: python3 -m venv /home/hitesh/.venv
+      become: yes
+      when: not ansible_facts.packages['python3-venv'] is defined
+
+    # Install Kubernetes Python client inside the virtual environment
+    - name: Install Kubernetes Python client
+      shell: |
+        /home/hitesh/.venv/bin/pip install kubernetes
+      become: yes
+      when: ansible_facts.packages['python3-venv'] is defined
+
+    # Ensure Git treats the repository directory as safe
+    - name: Ensure Git treats the repository directory as safe
+      command: git config --global --add safe.directory /home/hitesh/Cafe_Dynamic_Website
+      become: yes
+
+    # Clone the GitHub repository into the app directory
+    - name: Clone the GitHub repository
+      command: git clone "https://github.com/Hitesh-gp/Cafe_Dynamic_Website.git" /home/hitesh/Cafe_Dynamic_Website
+      args:
+        creates: /home/hitesh/Cafe_Dynamic_Website/.git  # Prevents re-cloning if already exists
+      become: yes
+
+    # Create MySQL deployment and service in Kubernetes
+    - name: Deploy MySQL database in Kubernetes
+      kubernetes.core.k8s:
+        state: present
+        definition: 
+          apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: mysql-deployment
+            namespace: "{{ namespace }}"  # Namespace added
+          spec:
+            replicas: 1
+            selector:
+              matchLabels:
+                app: mysql
+            template:
+              metadata:
+                labels:
+                  app: mysql
+              spec:
+                containers:
+                  - name: mysql
+                    image: mysql:5.7
+                    env:
+                      - name: MYSQL_ROOT_PASSWORD
+                        value: "{{ mysql_root_password }}"
+                      - name: MYSQL_DATABASE
+                        value: "{{ db_name }}"
+                      - name: MYSQL_USER
+                        value: "{{ db_user }}"
+                      - name: MYSQL_PASSWORD
+                        value: "{{ db_password }}"
+                    ports:
+                      - containerPort: 3306
+
+    - name: Expose MySQL service
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: v1
+          kind: Service
+          metadata:
+            name: mysql-service
+            namespace: "{{ namespace }}"  # Namespace added
+          spec:
+            ports:
+              - port: 3306
+            selector:
+              app: mysql
+
+    # Deploy Apache as the web server in Kubernetes
+    - name: Deploy Apache in Kubernetes
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: apps/v1
+          kind: Deployment
+          metadata:
+            name: apache-deployment
+            namespace: "{{ namespace }}"  # Namespace added
+          spec:
+            replicas: 1
+            selector:
+              matchLabels:
+                app: apache
+            template:
+              metadata:
+                labels:
+                  app: apache
+              spec:
+                containers:
+                  - name: apache
+                    image: httpd:latest
+                    volumeMounts:
+                      - mountPath: /usr/local/apache2/htdocs/
+                        name: web-content
+                volumes:
+                  - name: web-content
+                    hostPath:
+                      path: /mnt/data/Cafe_Dynamic_Website
+                      type: Directory
+
+    # Expose Apache service
+    - name: Expose Apache service
+      kubernetes.core.k8s:
+        state: present
+        definition:
+          apiVersion: v1
+          kind: Service
+          metadata:
+            name: apache-service
+            namespace: "{{ namespace }}"  # Namespace added
+          spec:
+            ports:
+              - port: 80
+            selector:
+              app: apache
+
+    # Wait for Apache to be ready
+    - name: Wait for Apache to be ready
+      command: kubectl wait --for=condition=available --timeout=600s deployment/apache-deployment -n "{{ namespace }}"
+      register: apache_ready
+
+    # Wait for MySQL service to be ready
+    - name: Wait for MySQL service to be ready
+      command: kubectl wait --for=condition=available --timeout=600s deployment/mysql-deployment -n "{{ namespace }}"
+      register: mysql_ready
+
+    # Get Minikube IP
+    - name: Get Minikube IP
+      command: minikube ip
+      register: minikube_ip
+
+    # Verify website deployment
+    - name: Verify website deployment
+      uri:
+        url: "http://{{ minikube_ip.stdout }}:80"
+        return_content: yes
+      register: result
+
+    - name: Show website URL in the output
+      debug:
+        msg: "Website deployed successfully! Access it at http://{{ minikube_ip.stdout }}:80"
